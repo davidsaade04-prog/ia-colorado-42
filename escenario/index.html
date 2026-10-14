@@ -45,10 +45,13 @@ header .marca p{margin:2px 0 0;color:var(--suave);font-size:13px}
 .placaIni small{display:block;margin-top:14px;color:var(--suave);font-size:clamp(10px,1.3vw,13px)}
 .oculta{opacity:0}
 .cargando{position:absolute;inset:0;display:grid;place-items:center;background:#0B1612;color:var(--suave);font-size:14px;transition:opacity .6s}
+.btnAuto{position:absolute;top:2.6%;right:2.6%;border:1px solid var(--linea);background:rgba(14,26,22,.7);color:var(--texto);padding:7px 12px;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;backdrop-filter:blur(4px)}
+.btnAuto[aria-pressed="true"]{background:var(--dorado);color:var(--tinta);border-color:var(--dorado)}
+.pista{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);background:rgba(14,26,22,.7);padding:6px 12px;border-radius:999px;font-size:12px;pointer-events:none;transition:opacity .8s;white-space:nowrap}
 .aviso{position:absolute;right:2%;bottom:1.2%;font-size:clamp(8px,1vw,11px);color:rgba(244,241,232,.7);pointer-events:none}
 
 .camaras{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
-.camaras .rot{font-size:12px;color:var(--suave);margin-right:4px}
+.camaras .rot{font-size:12px;color:var(--suave);margin-right:4px;line-height:1.4}
 .cam{border:1px solid var(--linea);background:rgba(255,255,255,.04);color:var(--texto);padding:6px 10px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600}
 .cam[aria-pressed="true"]{background:var(--dorado);color:var(--tinta);border-color:var(--dorado)}
 
@@ -101,22 +104,13 @@ footer{margin-top:18px;color:var(--suave);font-size:12px;line-height:1.5;text-al
       </div>
     </div>
     <div class="aviso">Personajes recreados con IA</div>
+    <button class="btnAuto" id="btnAuto" aria-pressed="true">🎬 Automática</button>
+    <div class="pista" id="pista">☝️ Arrastrá para mirar donde quieras</div>
     <div class="cargando" id="cargando">Armando la orilla del Bermejo…</div>
   </div>
 
-  <div class="camaras" id="camaras">
-    <span class="rot">Cámara:</span>
-    <button class="cam" data-cam="auto" aria-pressed="true">🎬 Automática</button>
-    <button class="cam" data-cam="general">General</button>
-    <button class="cam" data-cam="abierto">Río y puente</button>
-    <button class="cam" data-cam="lateralIzq">Costado izq.</button>
-    <button class="cam" data-cam="lateralDer">Costado der.</button>
-    <button class="cam" data-cam="picado">Desde arriba</button>
-    <button class="cam" data-cam="contrapicado">Desde abajo</button>
-    <button class="cam" data-cam="cenital">Cenital</button>
-    <button class="cam" data-cam="primerColon">Primer plano Colón</button>
-    <button class="cam" data-cam="primerRamon">Primer plano Ramón</button>
-    <button class="cam" data-cam="libre">✋ Libre</button>
+  <div class="camaras">
+    <span class="rot">Arrastrá con un dedo para mirar alrededor · pellizcá para acercarte · dos dedos para mover</span>
     <label class="chk" style="margin-left:auto"><input type="checkbox" id="chkVertical"> Vertical 9:16</label>
   </div>
 
@@ -1756,7 +1750,8 @@ scene.fog = new THREE.Fog(0xd9c6aa, 45, 220);
 const camera = new THREE.PerspectiveCamera(36, 16/9, 0.05, 600);
 camera.position.set(0, 1.55, 4.6);
 const controles = new OrbitControls(camera, renderer.domElement);
-Object.assign(controles, { enableDamping:true, dampingFactor:0.08, enabled:false, minDistance:0.6, maxDistance:30, maxPolarAngle:1.62 });
+Object.assign(controles, { enableDamping:true, dampingFactor:0.09, enabled:true, enablePan:true, screenSpacePanning:true, rotateSpeed:0.7, zoomSpeed:0.9, panSpeed:0.8, minDistance:0.5, maxDistance:45, maxPolarAngle:1.6 });
+controles.touches = { ONE:THREE.TOUCH.ROTATE, TWO:THREE.TOUCH.DOLLY_PAN };
 controles.target.set(0, 1.2, 0);
 
 function azarS(sem){ return () => (sem = (sem*16807) % 2147483647)/2147483647; }
@@ -2017,14 +2012,34 @@ function moverCamara(t, dt){
   if ($('escena').classList.contains('vertical')) camera.fov = Math.min(70, camera.fov*1.55);
   camera.lookAt(dir.look); camera.updateProjectionMatrix();
 }
-// botones de cámara
-document.querySelectorAll('.cam').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.cam').forEach(x => x.setAttribute('aria-pressed', x === b));
-  const c = b.dataset.cam;
-  if (c === 'auto'){ dir.modo = 'auto'; controles.enabled = false; dir.prox = 0; }
-  else if (c === 'libre'){ dir.modo = 'libre'; controles.enabled = true; controles.target.copy(dir.look); $('tomaTxt').textContent = 'Cámara libre: arrastrá para girar'; }
-  else { dir.modo = 'manual'; controles.enabled = false; irA(c, 1.4); }
-}));
+// Cámara con los dedos: al arrastrar o pellizcar, la cámara pasa a ser libre.
+// El botón «Automática» le devuelve el control al director.
+function ponerAuto(on){
+  $('btnAuto').setAttribute('aria-pressed', on);
+  if (on){ dir.modo = 'auto'; dir.prox = 0; }
+  else if (dir.modo !== 'libre'){ dir.modo = 'libre'; $('tomaTxt').textContent = 'Cámara libre'; }
+}
+$('btnAuto').addEventListener('click', ev => { ev.stopPropagation(); ponerAuto(dir.modo !== 'auto'); });
+const toque = { x:0, y:0, dedos:0, movio:false };
+renderer.domElement.addEventListener('pointerdown', ev => {
+  toque.dedos++; if (toque.dedos === 1){ toque.x = ev.clientX; toque.y = ev.clientY; toque.movio = false; }
+  if (toque.dedos >= 2) tomarCamara();
+  if (dir.modo !== 'libre'){ controles.target.copy(dir.look); controles.update(); }
+});
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (!toque.dedos || toque.movio) return;
+  if (Math.hypot(ev.clientX - toque.x, ev.clientY - toque.y) > 6){ toque.movio = true; tomarCamara(); }
+});
+const soltar = () => { toque.dedos = Math.max(0, toque.dedos - 1); };
+renderer.domElement.addEventListener('pointerup', soltar); renderer.domElement.addEventListener('pointercancel', soltar);
+renderer.domElement.addEventListener('wheel', () => tomarCamara(), { passive:true });
+function tomarCamara(){
+  if (dir.modo === 'libre') return;
+  controles.target.copy(dir.look); controles.update();
+  dir.modo = 'libre'; $('btnAuto').setAttribute('aria-pressed', 'false');
+  $('tomaTxt').textContent = 'Cámara libre'; $('pista').classList.add('oculta');
+}
+setTimeout(() => $('pista').classList.add('oculta'), 7000);
 
 /* tamaño del lienzo */
 function ajustar(){
@@ -2038,7 +2053,7 @@ $('chkVertical').addEventListener('change', e => { contenedor.classList.toggle('
 /* tocar un personaje en la escena */
 const rayo = new THREE.Raycaster(), puntero = new THREE.Vector2();
 renderer.domElement.addEventListener('click', ev => {
-  if (dir.modo === 'libre') return;
+  if (toque.movio) return;
   const r = renderer.domElement.getBoundingClientRect();
   puntero.set(((ev.clientX - r.left)/r.width)*2 - 1, -((ev.clientY - r.top)/r.height)*2 + 1);
   rayo.setFromCamera(puntero, camera);
@@ -2225,7 +2240,7 @@ let actuando = false;
 $('btnActuar').addEventListener('click', async () => {
   await cerrar(); actuando = true; $('btnActuar').disabled = true; $('btnParar').disabled = false;
   const st = t => { $('estadoGuion').textContent = t; };
-  dir.modo = 'manual'; document.querySelectorAll('.cam').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  dir.modo = 'manual'; $('btnAuto').setAttribute('aria-pressed', 'false');
   $('placaIni').classList.remove('oculta'); await new Promise(r => setTimeout(r, 2600)); $('placaIni').classList.add('oculta');
   for (const lineaG of $('guion').value.split('\n')){
     if (!actuando) break;
@@ -2233,7 +2248,8 @@ $('btnActuar').addEventListener('click', async () => {
     let m;
     if ((m = l.match(/^\[c[aá]mara:\s*(.+)\]$/i))) {
       const c = sinTildes(m[1]).trim();
-      if (c === 'auto'){ dir.modo = 'auto'; dir.prox = 0; } else { dir.modo = 'manual'; const n = CAM_GUION[c] || 'general'; Math.random() < 0.5 ? cortarA(n) : irA(n, 1.6); }
+      if (dir.modo === 'libre') continue;   // si tomaste la cámara con los dedos, se respeta
+      if (c === 'auto'){ ponerAuto(true); } else { dir.modo = 'manual'; const n = CAM_GUION[c] || 'general'; Math.random() < 0.5 ? cortarA(n) : irA(n, 1.6); }
       continue;
     }
     if ((m = l.match(/^\(pausa\s*([\d.]+)?\)$/i))) { await new Promise(r => setTimeout(r, (+m[1] || 1)*1000)); continue; }
@@ -2243,6 +2259,7 @@ $('btnActuar').addEventListener('click', async () => {
     }
   }
   subtitular(null, ''); actuando = false; $('btnActuar').disabled = false; $('btnParar').disabled = true; st('Fin del guion.');
+  if (dir.modo !== 'libre') ponerAuto(true);
 });
 $('btnParar').addEventListener('click', () => { actuando = false; for (const h of Object.values(H)) h.callar(); });
 try { speechSynthesis.getVoices(); } catch {}
