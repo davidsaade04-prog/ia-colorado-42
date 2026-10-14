@@ -184,14 +184,14 @@ const PERSONA = {
   "vista": false,
   "fraseDemo": "¡Buenas! Soy Ramón, maestro del pueblo pilagá. Estoy acá en el Puente Libertad, mirando el Bermejo.",
   "apariencia": {
-    "piel": "#c07b57",
+    "piel": "#6f4029",
     "ojos": "#1e140e",
     "pelo": {
-      "color": "#141110",
-      "canas": 0.1,
-      "volumen": 1.25,
+      "color": "#060505",
+      "canas": 0,
+      "volumen": 1.3,
       "entradas": 0,
-      "largo": 0.9,
+      "largo": 1.0,
       "rodete": false,
       "patillas": false,
       "bigote": false,
@@ -208,7 +208,7 @@ const PERSONA = {
     },
     "ropa": {
       "tipo": "torso",
-      "color": "#c07b57",
+      "color": "#6f4029",
       "bordado": false,
       "colorBordado": "#b8b8b8",
       "colorDetalle": "#b5462f",
@@ -435,16 +435,18 @@ function materialBordado(repX = 1, repY = 1, girar = false){
 }
 // Cordón trenzado de las charreteras
 function texturaPinturaCorporal(base){
-  const c = document.createElement('canvas'); c.width = 512; c.height = 512; const x = c.getContext('2d');
-  x.fillStyle = base; x.fillRect(0, 0, 512, 512);
-  x.strokeStyle = 'rgba(48,26,16,0.55)'; x.lineWidth = 3; x.lineCap = 'round';
-  // trazos geométricos finos (rombos y líneas quebradas), como en la imagen de referencia
-  for (let fila = 0; fila < 6; fila++){
-    const y0 = 40 + fila*80;
+  // piel con trazos finos y espaciados, como pintura corporal (no como un tejido)
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, 1024, 1024);
+  const r = azar(11);
+  for (let i = 0; i < 2600; i++){ x.fillStyle = `rgba(${r() < 0.5 ? '255,220,190' : '60,30,15'},${0.025 + r()*0.03})`; x.beginPath(); x.arc(r()*1024, r()*1024, 2 + r()*6, 0, Math.PI*2); x.fill(); }
+  x.strokeStyle = 'rgba(40,20,10,0.32)'; x.lineWidth = 2.2; x.lineCap = 'round'; x.lineJoin = 'round';
+  // tres bandas de trazos quebrados en el pecho y la panza, con mucho aire entre ellas
+  for (const y0 of [250, 520, 760]){
     x.beginPath();
-    for (let k = 0; k <= 16; k++){ const xx = k*32, yy = y0 + (k % 2 ? 22 : 0); k ? x.lineTo(xx, yy) : x.moveTo(xx, yy); }
+    for (let k = 0; k <= 12; k++){ const xx = 40 + k*80, yy = y0 + (k % 2 ? 28 : 0) + (r() - 0.5)*6; k ? x.lineTo(xx, yy) : x.moveTo(xx, yy); }
     x.stroke();
-    for (let k = 0; k < 8; k++){ const cx = 32 + k*64, cy = y0 + 46; x.beginPath(); x.moveTo(cx, cy - 12); x.lineTo(cx + 10, cy); x.lineTo(cx, cy + 12); x.lineTo(cx - 10, cy); x.closePath(); x.stroke(); }
+    for (let k = 0; k < 6; k++){ const cx = 120 + k*160 + (r() - 0.5)*20, cy = y0 + 70; x.beginPath(); x.moveTo(cx, cy - 16); x.lineTo(cx + 12, cy); x.lineTo(cx, cy + 16); x.lineTo(cx - 12, cy); x.closePath(); x.stroke(); }
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
@@ -942,7 +944,7 @@ function crearCabezaMelero(cabeza, Rp){
 }
 
 if ((AP.ropa.tipo || '') === 'torso'){
-  const tx = texturaPinturaCorporal(AP.piel); tx.repeat.set(3, 1.4);
+  const tx = texturaPinturaCorporal(AP.piel); tx.repeat.set(1.5, 1);
   M.casaca = new THREE.MeshPhysicalMaterial({ side:THREE.DoubleSide, map:tx, roughness:0.55, sheen:0.3, sheenColor:new THREE.Color(0xffc0a0) });
 }
 /* ---------------- Figura humana ---------------- */
@@ -1193,7 +1195,7 @@ function crearPersona(){
     B.codo = new THREE.Group(); B.codo.position.y = -0.29; B.codo.rotation.order = 'YXZ'; B.hombro.add(B.codo);
     B.codo.add(esfera(0.045, M.casaca));
     const antebrazo = malla(new THREE.CylinderGeometry(0.044, 0.037, 0.25, 24), M.casaca); antebrazo.position.y = -0.125; B.codo.add(antebrazo);
-    const puno = malla(new THREE.CylinderGeometry(0.046, 0.043, 0.075, 32), AP.ropa.bordado ? M.bordadoPuno : M.casaca); puno.position.y = -0.21; B.codo.add(puno);
+    const puno = malla(new THREE.CylinderGeometry(0.046, 0.043, 0.075, 32), AP.ropa.bordado ? M.bordadoPuno : M.casaca); puno.position.y = -0.21; if (AP.ropa.tipo !== 'torso') B.codo.add(puno);
     B.muneca = new THREE.Group(); B.muneca.position.y = -0.25; B.codo.add(B.muneca);
     const palma = esfera(1, M.manos, 0.015, 0.044, 0.039); palma.position.y = -0.042; B.muneca.add(palma);
     B.dedos = [];
@@ -1447,12 +1449,13 @@ function crearObjeto(tipo){
       return { g, agarre:'palma', inclinar:-0.55 };
     }
     case 'sombreroMano': {
-      const cuero = new THREE.MeshStandardMaterial({ color:0xa8743e, roughness:0.7 });
-      const ala = pon(cil(0.15, 0.15, 0.008, cuero, 48), 0, 0.004, 0); ala.scale.z = 0.92;
-      const copa = pon(cil(0.075, 0.088, 0.075, cuero, 40), 0, -0.036, 0);
-      const tira = pon(malla(new THREE.TorusGeometry(0.087, 0.004, 8, 40), new THREE.MeshStandardMaterial({ color:0x5a3a1e, roughness:0.8 })), 0, -0.004, 0); tira.rotation.x = Math.PI/2;
-      g.rotation.x = 0.2;
-      return { g, agarre:'palma', inclinar:-0.9 };
+      // sombrero de cuero tomado del ala, colgando al costado de la pierna
+      const cuero = new THREE.MeshStandardMaterial({ color:0xa8743e, roughness:0.7, side:THREE.DoubleSide });
+      const ala = pon(cil(0.15, 0.15, 0.008, cuero, 48), 0, 0.14, 0); ala.rotation.x = Math.PI/2;
+      const copa = pon(cil(0.072, 0.086, 0.085, cuero, 40), 0, 0.14, 0.045); copa.rotation.x = Math.PI/2;
+      const tapa = pon(cil(0.072, 0.072, 0.006, cuero, 40), 0, 0.14, 0.088); tapa.rotation.x = Math.PI/2;
+      const tira = pon(malla(new THREE.TorusGeometry(0.087, 0.0045, 8, 40), new THREE.MeshStandardMaterial({ color:0x5a3a1e, roughness:0.8 })), 0, 0.14, 0.012);
+      return { g, agarre:'puno', pose:'baston', dir:[0.1, -1, 0.12] };
     }
     case 'mate': {
       pon(esfera(0.038, new THREE.MeshStandardMaterial({ color:0x6b5a2a, roughness:0.55 }), 1, 1.15, 1), 0, 0.042, 0);
