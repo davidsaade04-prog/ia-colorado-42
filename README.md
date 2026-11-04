@@ -7,5 +7,6 @@ Cristóbal Colón y Ramón (maestro pilagá, personaje ficticio) conversan a ori
 | 1 · Humano digital | [Colón](colon/) · [Ramón](ramon/) |
 | 2 · Escenario multiagente | [escenario/](escenario/) |
 | 3 · Realidad aumentada | [lente/](lente/) + láminas en [laminas/](laminas/) |
+| Instructivo 43 · Realidad mixta | [camina-el-colorado/](camina-el-colorado/) |
 
 Recreaciones hechas con IA con fines educativos. El encuentro es imaginario.
